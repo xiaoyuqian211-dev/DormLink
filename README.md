@@ -4,6 +4,9 @@ DormLink 是一个面向高校宿舍的 AIoT 环境智联系统原型，用于�
 
 当前阶段不接真实硬件。后端已经通过 `SensorProvider` 抽象预留真实设备数据来源，后续可替换为 HTTP、MQTT 或真实 AIoT 终端上报。
 
+
+<img src="docs/displays/mainpage.png" alt="DormLink 主页" width="900">
+
 ## 项目结构
 
 ```text
