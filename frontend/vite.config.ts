@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    allowedHosts: [
+      "discovered-vatican-thinkpad-tunnel.trycloudflare.com",
+      ".trycloudflare.com",
+    ],
   },
 });
-

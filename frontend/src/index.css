@@ -251,3 +251,30 @@ textarea {
     padding: 0.75rem;
   }
 }
+
+@keyframes twinFadeRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.twin-enter-soft {
+  animation: twinFadeRise 220ms ease-out both;
+  will-change: opacity, transform;
+}
+
+.twin-enter-scene {
+  animation: twinFadeRise 240ms ease-out both;
+  will-change: opacity, transform;
+}
+
+.twin-enter-panel {
+  animation: twinFadeRise 240ms ease-out both;
+  will-change: opacity, transform;
+}

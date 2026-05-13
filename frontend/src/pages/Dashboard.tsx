@@ -1,191 +1,262 @@
 import {
+  Activity,
+  ArrowRight,
+  Brain,
+  Clock3,
   CloudSun,
+  DoorOpen,
   Droplets,
   Gauge,
+  Lightbulb,
   Radio,
-  SunMedium,
+  ShieldCheck,
   Thermometer,
-  UserRoundCheck,
-  Wind,
+  Volume2,
+  Wifi,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
-import { MetricCard } from "../components/MetricCard";
-import { StatusBadge } from "../components/StatusBadge";
-import type { EnvironmentState, TelemetryReading } from "../types";
+import { PageHeader } from "../components/layout/PageHeader";
+import { ActionButton } from "../components/ui/ActionButton";
+import { EmptyState } from "../components/ui/EmptyState";
+import { GlassCard } from "../components/ui/GlassCard";
+import { MetricCard } from "../components/ui/MetricCard";
+import { OfflineBadge } from "../components/ui/OfflineBadge";
+import { SectionTitle } from "../components/ui/SectionTitle";
+import { StatusBadge } from "../components/ui/StatusBadge";
+import { TrendLine } from "../components/ui/TrendLine";
+import { statusStyles } from "../components/ui/statusStyles";
+import {
+  alertEvents,
+  aiInsight,
+  dormRoom,
+  environmentScore,
+  sensorMetrics,
+  timelineEvents,
+} from "../data/mockDormData";
+import type { MetricKey, SensorMetric } from "../types/dorm";
 
-const comfortLabels: Record<EnvironmentState["comfort_level"], string> = {
-  comfortable: "舒适",
-  acceptable: "可接受",
-  slightly_uncomfortable: "略不舒适",
-  uncomfortable: "不舒适",
+const metricIcon: Partial<Record<MetricKey, JSX.Element>> = {
+  temperature: <Thermometer size={18} />,
+  humidity: <Droplets size={18} />,
+  co2: <Gauge size={18} />,
+  light: <Lightbulb size={18} />,
+  noise: <Volume2 size={18} />,
+  occupancy: <Activity size={18} />,
 };
 
-const airLabels: Record<EnvironmentState["air_state"], string> = {
-  good: "良好",
-  moderate: "中等",
-  poor: "风险",
-};
-
-export default function Dashboard() {
-  const [telemetry, setTelemetry] = useState<TelemetryReading | null>(null);
-  const [state, setState] = useState<EnvironmentState | null>(null);
-  const [error, setError] = useState("");
-  const [updatedAt, setUpdatedAt] = useState("");
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      try {
-        const [current, environment] = await Promise.all([
-          api.getCurrentTelemetry(),
-          api.getEnvironmentState(),
-        ]);
-        if (!mounted) return;
-        setTelemetry(current);
-        setState(environment);
-        setUpdatedAt(new Date().toLocaleTimeString("zh-CN"));
-        setError("");
-      } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : "无法连接后端服务");
-      }
-    }
-
-    load();
-    const timer = window.setInterval(load, 5000);
-    return () => {
-      mounted = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  const comfortTone = useMemo(() => {
-    if (!state) return "neutral";
-    if (state.comfort_score >= 80) return "low";
-    if (state.comfort_score >= 60) return "medium";
-    return "high";
-  }, [state]);
-
-  if (!telemetry || !state) {
-    return (
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-panel">
-        <p className="text-sm font-medium text-slate-600">
-          {error || "正在加载 DormLink 实时环境数据..."}
-        </p>
-      </section>
-    );
-  }
+function SummaryWidget({
+  label,
+  value,
+  icon,
+  status,
+}: {
+  label: string;
+  value: string;
+  icon: JSX.Element;
+  status?: SensorMetric["status"];
+}) {
+  const tone = status ? statusStyles[status] : statusStyles.normal;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-panel">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase text-cyan-700">
-              DormLink Console
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-950">
-              宿舍环境智能中控台
-            </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              当前数据来自 MockSensorProvider，真实传感器接口已预留。
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge tone={comfortTone}>{comfortLabels[state.comfort_level]}</StatusBadge>
-            <StatusBadge tone="info">5 秒自动刷新</StatusBadge>
-            <span className="text-sm text-slate-500">更新时间：{updatedAt}</span>
-          </div>
+    <div className="rounded-[18px] border border-slate-300/20 bg-white/62 px-3.5 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.045),inset_0_1px_0_rgba(255,255,255,0.86)]">
+      <div className="flex items-center gap-2.5">
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-2xl border bg-white/80 shadow-[0_8px_18px_rgba(15,23,42,0.045)]"
+          style={{ color: tone.dot, borderColor: `${tone.dot}22` }}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] text-slate-500">{label}</p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-slate-950">{value}</p>
         </div>
-      </section>
-
-      {error ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {error}
-        </div>
-      ) : null}
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="当前温度"
-          value={telemetry.temperature}
-          unit="°C"
-          icon={<Thermometer size={22} />}
-          tone="rose"
-          footer={state.temperature_state === "hot" ? "温度偏高，注意体感热积累" : "温度处于可控区间"}
-        />
-        <MetricCard
-          title="湿度"
-          value={telemetry.humidity}
-          unit="%"
-          icon={<Droplets size={22} />}
-          tone="cyan"
-          footer={state.humidity_state === "humid" ? "湿度偏高，可能产生闷热感" : "湿度状态正常"}
-        />
-        <MetricCard
-          title="光照"
-          value={telemetry.light}
-          unit="lux"
-          icon={<SunMedium size={22} />}
-          tone="amber"
-          footer="学习区照明用于状态映射"
-        />
-        <MetricCard
-          title="空气质量"
-          value={telemetry.air_quality}
-          icon={<Wind size={22} />}
-          tone={state.air_state === "good" ? "emerald" : "amber"}
-          footer={`空气状态：${airLabels[state.air_state]}`}
-        />
-        <MetricCard
-          title="CO2"
-          value={telemetry.co2}
-          unit="ppm"
-          icon={<Gauge size={22} />}
-          tone={telemetry.co2 > 1000 ? "amber" : "emerald"}
-          footer={telemetry.co2 > 1000 ? "建议适当通风" : "处于正常观察范围"}
-        />
-        <MetricCard
-          title="人体存在"
-          value={telemetry.motion ? "有人" : "无人"}
-          icon={<UserRoundCheck size={22} />}
-          tone={telemetry.motion ? "blue" : "slate"}
-          footer={`房间状态：${state.occupancy_state === "occupied" ? "占用" : "空置"}`}
-        />
-        <MetricCard
-          title="综合舒适度"
-          value={state.comfort_score}
-          unit="/ 100"
-          icon={<CloudSun size={22} />}
-          tone={state.comfort_score >= 80 ? "emerald" : "amber"}
-          footer={comfortLabels[state.comfort_level]}
-        />
-        <MetricCard
-          title="设备信号"
-          value={telemetry.signal_strength}
-          unit="dBm"
-          icon={<Radio size={22} />}
-          tone="slate"
-          footer={`设备：${telemetry.device_id}`}
-        />
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-panel">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">系统摘要</p>
-            <p className="mt-2 text-lg font-semibold leading-8 text-slate-950">
-              {state.summary}
-            </p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            TVOC：{telemetry.tvoc} mg/m³ · 噪声：{telemetry.noise} dB
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
 
+function navigateToDigitalTwin() {
+  window.history.pushState(null, "", "/digital-twin");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+export default function Dashboard() {
+  const visibleMetrics = sensorMetrics.filter((metric) => metric.key !== "occupancy");
+  const focusAlert = alertEvents[0];
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="DormLink Overview"
+        title="宿舍环境健康总览"
+        description="把实时传感器、环境评分、异常判断和行动建议收拢到一个可信的 AIoT 操作台。"
+        badge={<StatusBadge status="normal" label="系统在线" />}
+      >
+        <div className="grid w-full gap-2 sm:min-w-[360px] sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryWidget label="房间" value={dormRoom.id} icon={<DoorOpen size={16} />} />
+          <SummaryWidget label="数据状态" value={dormRoom.mode} icon={<Wifi size={16} />} />
+          <SummaryWidget
+            label="关注项"
+            value={`${alertEvents.length} 个关注项`}
+            icon={<ShieldCheck size={16} />}
+            status={alertEvents.length ? "warning" : "normal"}
+          />
+          <SummaryWidget label="更新" value={dormRoom.updatedAt} icon={<Clock3 size={16} />} />
+        </div>
+      </PageHeader>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.85fr)]">
+        <GlassCard intensity="strong" className="relative overflow-hidden p-5 sm:p-6">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-72 rounded-full bg-blue-200/28 blur-3xl" />
+          <div className="relative grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+            <div className="flex justify-center lg:justify-start">
+              <div
+                className="relative flex h-52 w-52 items-center justify-center rounded-full border border-white/80 shadow-[0_24px_70px_rgba(79,124,255,0.14),inset_0_1px_0_rgba(255,255,255,0.92)]"
+                style={{
+                  background: `conic-gradient(#4F7CFF ${environmentScore.score * 3.6}deg, rgba(226,232,240,0.82) 0deg)`,
+                }}
+              >
+                <div className="flex h-[164px] w-[164px] flex-col items-center justify-center rounded-full bg-white/90 shadow-[inset_0_18px_45px_rgba(15,23,42,0.045)] backdrop-blur">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-blue-500">
+                    Health
+                  </p>
+                  <p className="mt-2 text-5xl font-semibold tracking-[-0.05em] text-slate-950">
+                    {environmentScore.score}
+                  </p>
+                  <p className="text-sm font-medium text-slate-500">/ 100</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status="warning" label={environmentScore.label} size="md" />
+                <OfflineBadge visible={!dormRoom.online} />
+                <span className="rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5 text-xs font-medium text-blue-700">
+                  Demo Mode
+                </span>
+              </div>
+              <h3 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                当前环境整体舒适，通风效率需要关注。
+              </h3>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                {environmentScore.summary} 系统已将异常定位到门口空气流动弱区，并建议优先使用窗户作为通风入口。
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <ActionButton variant="primary" onClick={navigateToDigitalTwin}>
+                  进入数字孪生定位
+                  <ArrowRight size={16} />
+                </ActionButton>
+                <ActionButton>
+                  <Brain size={16} />
+                  查看 AI 判断依据
+                </ActionButton>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard intensity="medium" className="p-5">
+          <SectionTitle
+            eyebrow="Current Focus"
+            title="当前关注项"
+            description="系统会把异常指标、影响区域和推荐动作合并成可执行摘要。"
+          />
+          {focusAlert ? (
+            <div className="mt-5 rounded-[22px] border border-amber-100/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.86),rgba(255,255,255,0.62))] p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">{focusAlert.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">{focusAlert.area} · {focusAlert.time}</p>
+                </div>
+                <StatusBadge status={focusAlert.status} label="需关注" />
+              </div>
+              <p className="mt-4 text-sm leading-6 text-slate-600">{focusAlert.reason}</p>
+              <p className="mt-3 rounded-2xl bg-white/60 px-3 py-2 text-sm leading-6 text-amber-800">
+                {focusAlert.suggestion}
+              </p>
+            </div>
+          ) : (
+            <EmptyState title="暂无关注项" description="所有环境指标都在舒适范围内。" />
+          )}
+        </GlassCard>
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle
+          eyebrow="Live Metrics"
+          title="实时环境指标"
+          description="每个指标包含当前值、状态、近 10 分钟趋势和区域上下文。"
+        />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleMetrics.map((metric) => (
+            <MetricCard key={metric.id} metric={metric} icon={metricIcon[metric.key]} />
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <GlassCard intensity="medium" className="p-5">
+          <SectionTitle
+            eyebrow="Device Mesh"
+            title="设备与数据质量"
+            description="展示传感器在线数量、网关状态和数据可信度。"
+          />
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <SummaryWidget label="在线传感器" value="6 / 6" icon={<Radio size={16} />} />
+            <SummaryWidget label="数据质量" value={`${dormRoom.dataQuality}%`} icon={<ShieldCheck size={16} />} />
+            <SummaryWidget label="占用状态" value={dormRoom.occupancy} icon={<CloudSun size={16} />} />
+          </div>
+          <div className="mt-5 h-14 rounded-[18px] border border-slate-300/18 bg-white/58 p-2">
+            <TrendLine
+              values={sensorMetrics.find((metric) => metric.key === "co2")?.history ?? [1]}
+              color="#4F7CFF"
+              height={44}
+            />
+          </div>
+        </GlassCard>
+
+        <GlassCard intensity="medium" className="p-5">
+          <SectionTitle
+            eyebrow="Recent Events"
+            title="最近环境变化"
+            description="按时间线解释环境变化，而不是只显示孤立数字。"
+          />
+          <div className="mt-5 grid gap-3">
+            {timelineEvents.map((event) => (
+              <div key={event.id} className="flex gap-3 rounded-[18px] border border-slate-300/18 bg-white/58 p-3">
+                <div className="pt-1">
+                  <span
+                    className="block h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor: statusStyles[event.status].dot,
+                      boxShadow: `0 0 12px ${statusStyles[event.status].dot}66`,
+                    }}
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">{event.time} · {event.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">{event.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      </section>
+
+      <GlassCard intensity="light" className="p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+              <Brain size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-slate-950">{aiInsight.title}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">{aiInsight.recommendation}</p>
+            </div>
+          </div>
+          <StatusBadge status="warning" label={`置信度 ${Math.round(aiInsight.confidence * 100)}%`} />
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
