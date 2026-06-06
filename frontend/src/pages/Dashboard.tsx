@@ -14,6 +14,8 @@ import {
   Volume2,
   Wifi,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ActionButton } from "../components/ui/ActionButton";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -32,6 +34,7 @@ import {
   sensorMetrics,
   timelineEvents,
 } from "../data/mockDormData";
+import type { TelemetrySourceResponse } from "../types";
 import type { MetricKey, SensorMetric } from "../types/dorm";
 
 const metricIcon: Partial<Record<MetricKey, JSX.Element>> = {
@@ -79,9 +82,88 @@ function navigateToDigitalTwin() {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+function sourceLabel(source: TelemetrySourceResponse | null) {
+  if (!source) {
+    return "Checking";
+  }
+  if (source.mode !== "mqtt") {
+    return "Mock fallback";
+  }
+  return source.fallback ? "Mock fallback" : "ConnectLab MQTT";
+}
+
+function sourceState(source: TelemetrySourceResponse | null) {
+  if (!source) {
+    return "Checking";
+  }
+  if (source.mode !== "mqtt") {
+    return "Mock mode";
+  }
+  if (!source.has_real_data) {
+    return "Waiting data";
+  }
+  return source.fallback ? "Fallback mock" : "Online";
+}
+
+function sourceTone(source: TelemetrySourceResponse | null): SensorMetric["status"] {
+  if (!source) {
+    return "offline";
+  }
+  if (source.mode !== "mqtt") {
+    return "warning";
+  }
+  if (!source.has_real_data) {
+    return "offline";
+  }
+  return source.fallback ? "warning" : "normal";
+}
+
+function formatLastSeen(lastSeen: string | null | undefined) {
+  if (!lastSeen) {
+    return "Waiting";
+  }
+
+  const timestamp = new Date(lastSeen).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "Waiting";
+  }
+
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+  return `${Math.floor(seconds / 60)}m ago`;
+}
+
 export default function Dashboard() {
+  const [sourceStatus, setSourceStatus] = useState<TelemetrySourceResponse | null>(null);
   const visibleMetrics = sensorMetrics.filter((metric) => metric.key !== "occupancy");
   const focusAlert = alertEvents[0];
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSourceStatus() {
+      try {
+        const status = await api.getTelemetrySource();
+        if (active) {
+          setSourceStatus(status);
+        }
+      } catch {
+        if (active) {
+          setSourceStatus(null);
+        }
+      }
+    }
+
+    loadSourceStatus();
+    const interval = window.setInterval(loadSourceStatus, 5000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -93,14 +175,24 @@ export default function Dashboard() {
       >
         <div className="grid w-full gap-2 sm:min-w-[360px] sm:grid-cols-2 lg:grid-cols-4">
           <SummaryWidget label="房间" value={dormRoom.id} icon={<DoorOpen size={16} />} />
-          <SummaryWidget label="数据状态" value={dormRoom.mode} icon={<Wifi size={16} />} />
+          <SummaryWidget
+            label="Data source"
+            value={sourceLabel(sourceStatus)}
+            icon={<Wifi size={16} />}
+            status={sourceTone(sourceStatus)}
+          />
           <SummaryWidget
             label="关注项"
             value={`${alertEvents.length} 个关注项`}
             icon={<ShieldCheck size={16} />}
             status={alertEvents.length ? "warning" : "normal"}
           />
-          <SummaryWidget label="更新" value={dormRoom.updatedAt} icon={<Clock3 size={16} />} />
+          <SummaryWidget
+            label="Last report"
+            value={formatLastSeen(sourceStatus?.last_seen)}
+            icon={<Clock3 size={16} />}
+            status={sourceTone(sourceStatus)}
+          />
         </div>
       </PageHeader>
 
@@ -132,7 +224,7 @@ export default function Dashboard() {
                 <StatusBadge status="warning" label={environmentScore.label} size="md" />
                 <OfflineBadge visible={!dormRoom.online} />
                 <span className="rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5 text-xs font-medium text-blue-700">
-                  Demo Mode
+                  {sourceState(sourceStatus)}
                 </span>
               </div>
               <h3 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-950">

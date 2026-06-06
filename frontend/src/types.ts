@@ -11,6 +11,7 @@ export type TelemetryReading = {
   motion: boolean;
   noise: number;
   signal_strength: number;
+  persons: number;
 };
 
 export type HistoryPoint = Pick<
@@ -22,6 +23,14 @@ export type HistoryResponse = {
   room_id: string;
   range: string;
   data: HistoryPoint[];
+};
+
+export type TelemetrySourceResponse = {
+  mode: string;
+  topic: string;
+  has_real_data: boolean;
+  last_seen: string | null;
+  fallback: boolean;
 };
 
 export type EnvironmentState = {
@@ -83,4 +92,3 @@ export type FeedbackResponse = {
 export type ChatAnswer = {
   answer: string;
 };
-

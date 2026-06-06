@@ -1,13 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.mqtt_bridge import start_mqtt_bridge, stop_mqtt_bridge
 from app.models import HealthResponse
 from app.routers import chat, feedback, prediction, telemetry, twin
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    start_mqtt_bridge()
+    try:
+        yield
+    finally:
+        stop_mqtt_bridge()
+
 
 app = FastAPI(
     title="DormLink API",
     version="0.1.0",
     description="AIoT dormitory environment intelligence prototype.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -33,4 +47,3 @@ app.include_router(prediction.router)
 app.include_router(twin.router)
 app.include_router(feedback.router)
 app.include_router(chat.router)
-

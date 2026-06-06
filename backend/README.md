@@ -20,11 +20,76 @@ GET  /api/v1/telemetry/current
 GET  /api/v1/telemetry/history?range=1h
 POST /api/v1/telemetry/upload
 GET  /api/v1/telemetry/state
+GET  /api/v1/telemetry/source
 GET  /api/v1/prediction/short-term?horizon=30min
 GET  /api/v1/twin/state
 POST /api/v1/feedback
 POST /api/v1/chat/ask
 ```
+
+## MQTT Data Source
+
+DormLink runs with mock data by default. Set `MQTT_ENABLED=true` to make the
+backend connect to an MQTT broker at startup and subscribe to the telemetry
+topic. Do not commit a real `.env` file or real MQTT credentials.
+
+```powershell
+cd backend
+$env:MQTT_ENABLED="true"
+$env:MQTT_HOST="101.132.127.119"
+$env:MQTT_PORT="1883"
+$env:MQTT_USERNAME="dorm_embedded"
+$env:MQTT_PASSWORD="your_password"
+$env:MQTT_TOPIC="dormlink/telemetry"
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+You can also copy `.env.example` to `.env` locally and fill in your real values:
+
+```dotenv
+MQTT_ENABLED=true
+MQTT_HOST=101.132.127.119
+MQTT_PORT=1883
+MQTT_USERNAME=dorm_embedded
+MQTT_PASSWORD=your_password
+MQTT_CLIENT_ID=
+MQTT_TOPIC=dormlink/telemetry
+```
+
+Expected payload on `dormlink/telemetry`:
+
+```json
+{
+  "room_id": "Dorm-A101",
+  "device_id": "DL-DEVICE-001",
+  "temperature": 25.3,
+  "humidity": 62.1,
+  "light": 450,
+  "air_quality": 38,
+  "co2": 680,
+  "tvoc": 0.12,
+  "motion": true,
+  "noise": 35,
+  "signal_strength": 24,
+  "persons": 2
+}
+```
+
+`timestamp` is optional. If it is missing, the backend stores the current UTC
+time before validating the message with `TelemetryReading`.
+`MQTT_CLIENT_ID` is optional. Leave it empty to let the backend generate a
+unique client id for the current process.
+
+Quick check:
+
+1. Start the backend and confirm logs show `MQTT connected` and `MQTT subscribed`.
+2. Send the sample payload to `dormlink/telemetry`.
+3. Open `http://localhost:8000/api/v1/telemetry/current` and confirm the latest MQTT values are returned.
+4. Open `http://localhost:8000/api/v1/telemetry/history?range=1h` and confirm the real reading appears in history.
+5. Open `http://localhost:8000/api/v1/telemetry/source` to verify mode, topic, last seen time, and fallback state.
+
+If `MQTT_ENABLED` is not `true`, `MQTT_HOST` is empty, or dependencies are not
+installed, the API falls back to mock readings so the pages keep rendering.
 
 ## 架构说明
 
@@ -44,4 +109,3 @@ POST /api/v1/chat/ask
 - MQTT：服务端或边缘桥接程序订阅设备 Topic，解析后调用 `receive_uploaded_telemetry`
 
 业务层只依赖 `BaseSensorProvider` 协议，因此替换真实数据源时不需要重写路由。
-

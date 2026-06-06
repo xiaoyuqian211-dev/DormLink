@@ -27,6 +27,7 @@ class TelemetryReading(BaseModel):
     motion: bool
     noise: int
     signal_strength: int
+    persons: int = 0
 
 
 class HistoryPoint(BaseModel):
@@ -47,6 +48,14 @@ class HistoryResponse(BaseModel):
 class TelemetryUploadResponse(BaseModel):
     success: bool
     message: str
+
+
+class TelemetrySourceResponse(BaseModel):
+    mode: str
+    topic: str
+    has_real_data: bool
+    last_seen: datetime | None = None
+    fallback: bool
 
 
 class EnvironmentState(BaseModel):
@@ -113,4 +122,3 @@ class ChatQuestion(BaseModel):
 
 class ChatAnswer(BaseModel):
     answer: str
-

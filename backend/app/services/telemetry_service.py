@@ -1,8 +1,11 @@
+from app.config import settings
+from app.mock_data import ROOM_ID
 from app.models import (
     EnvironmentState,
     HistoryPoint,
     HistoryResponse,
     TelemetryReading,
+    TelemetrySourceResponse,
 )
 from app.sensor_provider import SensorReading, sensor_provider
 
@@ -32,14 +35,23 @@ def get_history(range_value: str = "1h") -> HistoryResponse:
         )
         for reading in readings
     ]
-    room_id = readings[-1].room_id if readings else "Dorm-A101"
+    room_id = readings[-1].room_id if readings else ROOM_ID
     return HistoryResponse(room_id=room_id, range=range_value, data=points)
 
 
 def receive_uploaded_telemetry(payload: TelemetryReading) -> None:
-    # Future real sensors can report here through HTTP. An MQTT bridge can also
-    # subscribe to device topics and call this service after decoding payloads.
     sensor_provider.ingest_reading(model_to_reading(payload))
+
+
+def get_telemetry_source() -> TelemetrySourceResponse:
+    snapshot = sensor_provider.get_source_snapshot()
+    return TelemetrySourceResponse(
+        mode=settings.sensor_mode,
+        topic=settings.mqtt_topic,
+        has_real_data=snapshot.has_real_data,
+        last_seen=snapshot.last_seen,
+        fallback=snapshot.fallback,
+    )
 
 
 def get_environment_state() -> EnvironmentState:
@@ -182,4 +194,3 @@ def _summary(
 
     occupancy_text = "检测到有人在宿舍" if occupancy_state == "occupied" else "当前未检测到明显活动"
     return f"当前宿舍{parts[0]}，{parts[1]}，{parts[2]}，{occupancy_text}。"
-

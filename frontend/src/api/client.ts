@@ -6,10 +6,12 @@ import type {
   HistoryResponse,
   PredictionResponse,
   TelemetryReading,
+  TelemetrySourceResponse,
   TwinState,
 } from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? "" : "http://localhost:8000");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -39,6 +41,9 @@ export const api = {
       `/api/v1/telemetry/history?range=${encodeURIComponent(range)}`,
     ),
 
+  getTelemetrySource: () =>
+    request<TelemetrySourceResponse>("/api/v1/telemetry/source"),
+
   getPrediction: (horizon = "30min") =>
     request<PredictionResponse>(
       `/api/v1/prediction/short-term?horizon=${encodeURIComponent(horizon)}`,
@@ -58,4 +63,3 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 };
-
