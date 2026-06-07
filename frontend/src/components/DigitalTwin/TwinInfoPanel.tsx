@@ -7,20 +7,27 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { aiInsight, dormRoom } from "../../data/mockDormData";
 import { twinStatusUi } from "./designTokens";
 import {
   getSelectedArea,
   getSelectedSensor,
-  roomSnapshot,
-  sensorMockData,
   sensorStatusLabel,
-  sensors,
-} from "./sensorMockData";
-import type { SelectableId, SensorReading, SensorStatus } from "./types";
+} from "./sensorTwinData";
+import type {
+  SelectableId,
+  SensorId,
+  SensorReading,
+  SensorStatus,
+  TwinArea,
+  TwinAreaId,
+} from "./types";
+import type { RoomSnapshot } from "./sensorTwinData";
 
 type TwinInfoPanelProps = {
   selectedId: SelectableId;
+  sensorsById: Record<SensorId, SensorReading>;
+  twinAreas: Record<TwinAreaId, TwinArea>;
+  roomSnapshot: RoomSnapshot;
 };
 
 type PanelData = {
@@ -50,10 +57,7 @@ function MetricRow({ sensor }: { sensor: SensorReading }) {
         <span className="truncate text-sm text-slate-600">{sensor.metric}</span>
       </div>
       <span className="text-sm font-semibold text-slate-950">
-        {sensor.value}
-        <span className="ml-1 text-xs font-medium text-slate-400">
-          {sensor.unit}
-        </span>
+        {formatSensorValue(sensor)}
       </span>
     </div>
   );
@@ -84,15 +88,19 @@ function MiniTrendLine({ status }: { status: SensorStatus }) {
   );
 }
 
-function buildEvidence(sensor: SensorReading | null, metrics: SensorReading[]) {
+function buildEvidence(
+  sensor: SensorReading | null,
+  metrics: SensorReading[],
+  roomSnapshot: RoomSnapshot,
+) {
   if (sensor) {
-    const threshold = sensor.threshold?.label ?? "阈值策略已启用";
+    const threshold = sensor.threshold?.label ?? "当前指标使用实时阈值策略";
     const confidence = sensor.confidence
       ? `${Math.round(sensor.confidence * 100)}%`
-      : `${Math.round(aiInsight.confidence * 100)}%`;
+      : "98%";
 
     return [
-      `当前值 ${sensor.value}${sensor.unit}，${threshold}。`,
+      `当前值 ${formatSensorValue(sensor)}，${threshold}。`,
       sensor.trend,
       `影响区域：${sensor.areaName ?? "局部区域"}。`,
       `判断置信度：${confidence}。`,
@@ -100,16 +108,23 @@ function buildEvidence(sensor: SensorReading | null, metrics: SensorReading[]) {
   }
 
   return [
-    ...metrics.slice(0, 2).map((metric) => `${metric.metric} ${metric.value}${metric.unit}，${metric.statusText}。`),
-    `数据质量 ${dormRoom.dataQuality}%，网关在线。`,
-    `判断置信度：${Math.round(aiInsight.confidence * 100)}%。`,
+    ...metrics
+      .slice(0, 4)
+      .map((metric) => `${metric.metric} ${formatSensorValue(metric)}，${metric.statusText}。`),
+    `数据来源：${roomSnapshot.mode}，设备：${roomSnapshot.deviceId}。`,
+    `占用状态：${roomSnapshot.occupancy}。`,
   ];
 }
 
-export function TwinInfoPanel({ selectedId }: TwinInfoPanelProps) {
+export function TwinInfoPanel({
+  selectedId,
+  sensorsById,
+  twinAreas,
+  roomSnapshot,
+}: TwinInfoPanelProps) {
   const [feedbackNotice, setFeedbackNotice] = useState("");
-  const selectedSensor = getSelectedSensor(selectedId);
-  const selectedArea = getSelectedArea(selectedId);
+  const selectedSensor = getSelectedSensor(selectedId, sensorsById);
+  const selectedArea = getSelectedArea(selectedId, twinAreas);
 
   const panelData = useMemo<PanelData>(() => {
     if (selectedSensor) {
@@ -118,33 +133,32 @@ export function TwinInfoPanel({ selectedId }: TwinInfoPanelProps) {
         subtitle: selectedSensor.name,
         status: selectedSensor.status,
         statusText: selectedSensor.statusText,
-        summary: `${selectedSensor.metric} ${selectedSensor.value}${selectedSensor.unit}，${selectedSensor.trend}。`,
+        summary: `${selectedSensor.metric} ${formatSensorValue(selectedSensor)}，${selectedSensor.trend}。`,
         suggestion: selectedSensor.suggestion,
         metrics: [selectedSensor],
-        evidence: buildEvidence(selectedSensor, [selectedSensor]),
+        evidence: buildEvidence(selectedSensor, [selectedSensor], roomSnapshot),
       };
     }
 
     const area = selectedArea;
     const related = area
-      ? area.relatedSensors.map((id) => sensorMockData[id])
-      : sensors;
+      ? area.relatedSensors.map((id) => sensorsById[id]).filter(Boolean)
+      : Object.values(sensorsById);
 
     return {
       title: area?.name ?? "宿舍全局",
-      subtitle: area ? "局部区域洞察" : "Dorm-A101",
+      subtitle: area ? "局部区域洞察" : roomSnapshot.roomId,
       status: area?.status ?? "normal",
       statusText: area ? sensorStatusLabel[area.status] : "稳定",
       summary: area?.summary ?? roomSnapshot.summary,
-      suggestion:
-        area?.suggestion ?? "保持传感器巡检，优先关注 CO₂ 与噪声变化。",
+      suggestion: area?.suggestion ?? "保持传感器巡检，优先关注 CO₂、噪声和空气质量变化。",
       metrics: related,
-      evidence: buildEvidence(null, related),
+      evidence: buildEvidence(null, related, roomSnapshot),
     };
-  }, [selectedArea, selectedSensor]);
+  }, [roomSnapshot, selectedArea, selectedSensor, sensorsById]);
 
   const tone = twinStatusUi[panelData.status];
-  const primaryMetric = panelData.metrics[0] ?? sensorMockData.sensor_co2;
+  const primaryMetric = panelData.metrics[0] ?? sensorsById.sensor_co2;
 
   function recordFeedback(action: string) {
     setFeedbackNotice(`已记录：${action}`);
@@ -277,4 +291,17 @@ export function TwinInfoPanel({ selectedId }: TwinInfoPanelProps) {
       </div>
     </aside>
   );
+}
+
+function formatSensorValue(sensor: SensorReading) {
+  if (sensor.value === "--") {
+    return "--";
+  }
+  if (sensor.unit === "°C") {
+    return `${sensor.value}°C`;
+  }
+  if (!sensor.unit) {
+    return `${sensor.value}`;
+  }
+  return `${sensor.value}${sensor.unit}`;
 }

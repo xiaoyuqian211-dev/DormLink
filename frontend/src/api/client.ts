@@ -1,4 +1,7 @@
 import type {
+  AssistantAskPayload,
+  AssistantAskResponse,
+  AssistantContextResponse,
   ChatAnswer,
   EnvironmentState,
   FeedbackPayload,
@@ -7,6 +10,7 @@ import type {
   PredictionResponse,
   TelemetryReading,
   TelemetrySourceResponse,
+  TelemetrySummaryResponse,
   TwinState,
 } from "../types";
 
@@ -36,9 +40,22 @@ export const api = {
   getEnvironmentState: () =>
     request<EnvironmentState>("/api/v1/telemetry/state"),
 
-  getTelemetryHistory: (range = "1h") =>
-    request<HistoryResponse>(
-      `/api/v1/telemetry/history?range=${encodeURIComponent(range)}`,
+  getTelemetryHistory: (
+    range = "1h",
+    options: { roomId?: string; start?: string; end?: string } = {},
+  ) => {
+    const params = new URLSearchParams({ range });
+    if (options.roomId) params.set("room_id", options.roomId);
+    if (options.start) params.set("start", options.start);
+    if (options.end) params.set("end", options.end);
+    return request<HistoryResponse>(
+      `/api/telemetry/history?${params.toString()}`,
+    );
+  },
+
+  getTelemetrySummary: (roomId = "Dorm-A101", window = "1h") =>
+    request<TelemetrySummaryResponse>(
+      `/api/telemetry/summary?room_id=${encodeURIComponent(roomId)}&window=${encodeURIComponent(window)}`,
     ),
 
   getTelemetrySource: () =>
@@ -55,6 +72,17 @@ export const api = {
     request<ChatAnswer>("/api/v1/chat/ask", {
       method: "POST",
       body: JSON.stringify({ question }),
+    }),
+
+  getAssistantContext: (roomId = "Dorm-A101", window = "1h") =>
+    request<AssistantContextResponse>(
+      `/api/assistant/context?room_id=${encodeURIComponent(roomId)}&window=${encodeURIComponent(window)}`,
+    ),
+
+  askAssistant: (payload: AssistantAskPayload) =>
+    request<AssistantAskResponse>("/api/assistant/ask", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 
   submitFeedback: (payload: FeedbackPayload) =>

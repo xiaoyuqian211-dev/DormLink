@@ -32,17 +32,48 @@ class TelemetryReading(BaseModel):
 
 class HistoryPoint(BaseModel):
     timestamp: datetime
+    room_id: str
+    device_id: str
     temperature: float
     humidity: float
+    light: int
     air_quality: int
     co2: int
-    light: int
+    tvoc: float
+    motion: bool
+    noise: int
+    signal_strength: int
+    persons: int = 0
 
 
 class HistoryResponse(BaseModel):
     room_id: str
     range: str
     data: list[HistoryPoint]
+    data_status: str = "real"
+    sample_count: int = 0
+
+
+class TelemetryLatestResponse(BaseModel):
+    source: str
+    data_status: str
+    data: TelemetryReading | None
+
+
+class MetricStat(BaseModel):
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+    delta: float | None = None
+
+
+class TelemetrySummaryResponse(BaseModel):
+    room_id: str
+    window: str
+    latest: TelemetryReading | None = None
+    stats: dict[str, MetricStat]
+    sample_count: int
+    data_status: str
 
 
 class TelemetryUploadResponse(BaseModel):
@@ -118,7 +149,36 @@ class FeedbackResponse(BaseModel):
 
 class ChatQuestion(BaseModel):
     question: str
+    room_id: str = "Dorm-A101"
+    window: str = "1h"
 
 
 class ChatAnswer(BaseModel):
     answer: str
+    data_status: str = "mock"
+    confidence: float = 0.5
+    context: dict | None = None
+
+
+class AssistantContextResponse(BaseModel):
+    room_id: str
+    window: str
+    data_status: str
+    latest: TelemetryReading | None = None
+    recent_summary: dict
+    recent_events: list[dict]
+    thresholds: dict
+    confidence: float
+
+
+class AssistantAskRequest(BaseModel):
+    room_id: str = "Dorm-A101"
+    question: str
+    window: str = "1h"
+
+
+class AssistantAskResponse(BaseModel):
+    answer: str
+    data_status: str
+    confidence: float
+    context: AssistantContextResponse

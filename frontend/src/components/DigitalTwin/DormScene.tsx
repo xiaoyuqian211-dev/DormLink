@@ -7,12 +7,15 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { DormModel } from "./DormModel";
 import { SensorMarker } from "./SensorMarker";
 import { twinScenePalette } from "./designTokens";
-import { cameraFocusMap, sensors } from "./sensorMockData";
-import type { FocusRequest, SelectableId } from "./types";
+import { cameraFocusMap } from "./sensorTwinData";
+import type { FocusRequest, SelectableId, SensorId, SensorReading, TwinArea, TwinAreaId } from "./types";
 
 type DormSceneProps = {
   selectedId: SelectableId;
   focusRequest: FocusRequest;
+  sensors: SensorReading[];
+  sensorsById: Record<SensorId, SensorReading>;
+  twinAreas: Record<TwinAreaId, TwinArea>;
   onSelect: (id: SelectableId) => void;
   onManualControl?: () => void;
 };
@@ -130,6 +133,9 @@ function SceneLights() {
 export function DormScene({
   selectedId,
   focusRequest,
+  sensors,
+  sensorsById,
+  twinAreas,
   onSelect,
   onManualControl,
 }: DormSceneProps) {
@@ -198,7 +204,13 @@ export function DormScene({
         />
 
         <group position={[0, -0.02, 0]}>
-          <DormModel selectedId={selectedId} onSelect={onSelect} />
+          <DormModel
+            selectedId={selectedId}
+            sensors={sensors}
+            sensorsById={sensorsById}
+            twinAreas={twinAreas}
+            onSelect={onSelect}
+          />
           {sensors.map((sensor) => (
             <SensorMarker
               key={sensor.id}

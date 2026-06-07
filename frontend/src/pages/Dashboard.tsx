@@ -14,8 +14,7 @@ import {
   Volume2,
   Wifi,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useMemo } from "react";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ActionButton } from "../components/ui/ActionButton";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -36,6 +35,8 @@ import {
 } from "../data/mockDormData";
 import type { TelemetrySourceResponse } from "../types";
 import type { MetricKey, SensorMetric } from "../types/dorm";
+import { useRealtimeTelemetry } from "../hooks/useRealtimeTelemetry";
+import { buildTelemetryMetrics, hasRealTelemetry } from "../utils/telemetryMetrics";
 
 const metricIcon: Partial<Record<MetricKey, JSX.Element>> = {
   temperature: <Thermometer size={18} />,
@@ -43,6 +44,8 @@ const metricIcon: Partial<Record<MetricKey, JSX.Element>> = {
   co2: <Gauge size={18} />,
   light: <Lightbulb size={18} />,
   noise: <Volume2 size={18} />,
+  air_quality: <CloudSun size={18} />,
+  tvoc: <Radio size={18} />,
   occupancy: <Activity size={18} />,
 };
 
@@ -136,34 +139,23 @@ function formatLastSeen(lastSeen: string | null | undefined) {
 }
 
 export default function Dashboard() {
-  const [sourceStatus, setSourceStatus] = useState<TelemetrySourceResponse | null>(null);
-  const visibleMetrics = sensorMetrics.filter((metric) => metric.key !== "occupancy");
+  const { sourceStatus, latestTelemetry, historyTelemetry } = useRealtimeTelemetry();
   const focusAlert = alertEvents[0];
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadSourceStatus() {
-      try {
-        const status = await api.getTelemetrySource();
-        if (active) {
-          setSourceStatus(status);
-        }
-      } catch {
-        if (active) {
-          setSourceStatus(null);
-        }
-      }
-    }
-
-    loadSourceStatus();
-    const interval = window.setInterval(loadSourceStatus, 5000);
-
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, []);
+  const realTelemetryReady = hasRealTelemetry(sourceStatus) && latestTelemetry !== null;
+  const visibleMetrics = useMemo(
+    () =>
+      realTelemetryReady
+        ? buildTelemetryMetrics(latestTelemetry, historyTelemetry, sensorMetrics)
+        : sensorMetrics,
+    [historyTelemetry, latestTelemetry, realTelemetryReady],
+  );
+  const roomId = realTelemetryReady ? latestTelemetry.room_id : dormRoom.id;
+  const occupancyLabel = realTelemetryReady
+    ? latestTelemetry.motion
+      ? "有人活动"
+      : "无人活动"
+    : dormRoom.occupancy;
+  const co2TrendValues = visibleMetrics.find((metric) => metric.key === "co2")?.history ?? [1];
 
   return (
     <div className="space-y-5">
@@ -174,7 +166,7 @@ export default function Dashboard() {
         badge={<StatusBadge status="normal" label="系统在线" />}
       >
         <div className="grid w-full gap-2 sm:min-w-[360px] sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryWidget label="房间" value={dormRoom.id} icon={<DoorOpen size={16} />} />
+          <SummaryWidget label="房间" value={roomId} icon={<DoorOpen size={16} />} />
           <SummaryWidget
             label="Data source"
             value={sourceLabel(sourceStatus)}
@@ -294,13 +286,13 @@ export default function Dashboard() {
             description="展示传感器在线数量、网关状态和数据可信度。"
           />
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <SummaryWidget label="在线传感器" value="6 / 6" icon={<Radio size={16} />} />
+            <SummaryWidget label="在线传感器" value={realTelemetryReady ? "8 / 8" : "6 / 6"} icon={<Radio size={16} />} />
             <SummaryWidget label="数据质量" value={`${dormRoom.dataQuality}%`} icon={<ShieldCheck size={16} />} />
-            <SummaryWidget label="占用状态" value={dormRoom.occupancy} icon={<CloudSun size={16} />} />
+            <SummaryWidget label="占用状态" value={occupancyLabel} icon={<CloudSun size={16} />} />
           </div>
           <div className="mt-5 h-14 rounded-[18px] border border-slate-300/18 bg-white/58 p-2">
             <TrendLine
-              values={sensorMetrics.find((metric) => metric.key === "co2")?.history ?? [1]}
+              values={co2TrendValues}
               color="#4F7CFF"
               height={44}
             />

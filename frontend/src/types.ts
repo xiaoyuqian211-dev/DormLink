@@ -16,13 +16,49 @@ export type TelemetryReading = {
 
 export type HistoryPoint = Pick<
   TelemetryReading,
-  "timestamp" | "temperature" | "humidity" | "air_quality" | "co2" | "light"
+  | "timestamp"
+  | "room_id"
+  | "device_id"
+  | "temperature"
+  | "humidity"
+  | "light"
+  | "air_quality"
+  | "co2"
+  | "tvoc"
+  | "motion"
+  | "noise"
+  | "signal_strength"
+  | "persons"
 >;
 
 export type HistoryResponse = {
   room_id: string;
   range: string;
   data: HistoryPoint[];
+  data_status?: "real" | "mock" | string;
+  sample_count?: number;
+};
+
+export type TelemetryLatestResponse = {
+  source: "database" | "mock" | string;
+  data_status: "real" | "mock" | string;
+  data: TelemetryReading | null;
+};
+
+export type MetricStat = {
+  avg: number | null;
+  min: number | null;
+  max: number | null;
+  delta: number | null;
+};
+
+export type TelemetrySummaryResponse = {
+  room_id: string;
+  window: string;
+  latest: TelemetryReading | null;
+  stats: Record<"temperature" | "humidity" | "co2" | "noise" | "light", MetricStat>;
+  sample_count: number;
+  data_status: "real" | "mock" | string;
 };
 
 export type TelemetrySourceResponse = {
@@ -91,4 +127,38 @@ export type FeedbackResponse = {
 
 export type ChatAnswer = {
   answer: string;
+  data_status?: "real" | "mock" | string;
+  confidence?: number;
+  context?: AssistantContextResponse;
+};
+
+export type AssistantRecentEventResponse = {
+  type: string;
+  time: string;
+  value: number | string | boolean | null;
+  message: string;
+};
+
+export type AssistantContextResponse = {
+  room_id: string;
+  window: string;
+  data_status: "real" | "mock" | string;
+  latest: TelemetryReading | null;
+  recent_summary: TelemetrySummaryResponse;
+  recent_events: AssistantRecentEventResponse[];
+  thresholds: Record<string, number>;
+  confidence: number;
+};
+
+export type AssistantAskPayload = {
+  room_id: string;
+  question: string;
+  window: string;
+};
+
+export type AssistantAskResponse = {
+  answer: string;
+  data_status: "real" | "mock" | string;
+  confidence: number;
+  context: AssistantContextResponse;
 };

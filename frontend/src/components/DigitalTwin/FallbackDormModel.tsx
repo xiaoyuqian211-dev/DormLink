@@ -2,18 +2,21 @@ import { RoundedBox } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import {
-  getStatusOf,
-  sensorStatusTone,
-  sensors,
-  twinAreas,
-} from "./sensorMockData";
+import { getStatusOf, sensorStatusTone } from "./sensorTwinData";
 import { twinScenePalette } from "./designTokens";
-import type { SelectableId, SensorReading, TwinAreaId, Vector3Tuple } from "./types";
+import type {
+  SelectableId,
+  SensorId,
+  SensorReading,
+  TwinArea,
+  TwinAreaId,
+  Vector3Tuple,
+} from "./types";
 
 type SelectableGroupProps = {
   id: SelectableId;
   selectedId: SelectableId;
+  twinAreas: Record<TwinAreaId, TwinArea>;
   onSelect: (id: SelectableId) => void;
   children: ReactNode;
 };
@@ -21,6 +24,7 @@ type SelectableGroupProps = {
 function SelectableGroup({
   id,
   selectedId,
+  twinAreas,
   onSelect,
   children,
 }: SelectableGroupProps) {
@@ -42,12 +46,18 @@ function SelectableGroup({
       }}
     >
       {children}
-      {selectedId === id ? <SelectionHalo areaId={id as TwinAreaId} /> : null}
+      {selectedId === id ? <SelectionHalo areaId={id as TwinAreaId} twinAreas={twinAreas} /> : null}
     </group>
   );
 }
 
-function SelectionHalo({ areaId }: { areaId: TwinAreaId }) {
+function SelectionHalo({
+  areaId,
+  twinAreas,
+}: {
+  areaId: TwinAreaId;
+  twinAreas: Record<TwinAreaId, TwinArea>;
+}) {
   const area = twinAreas[areaId];
   if (!area) return null;
   const tone = sensorStatusTone[area.status];
@@ -104,8 +114,20 @@ function Box({
   );
 }
 
-function AreaPad({ id, position, scale }: { id: TwinAreaId; position: Vector3Tuple; scale: Vector3Tuple }) {
-  const status = getStatusOf(id);
+function AreaPad({
+  id,
+  position,
+  scale,
+  sensorsById,
+  twinAreas,
+}: {
+  id: TwinAreaId;
+  position: Vector3Tuple;
+  scale: Vector3Tuple;
+  sensorsById: Record<SensorId, SensorReading>;
+  twinAreas: Record<TwinAreaId, TwinArea>;
+}) {
+  const status = getStatusOf(id, sensorsById, twinAreas);
   const tone = sensorStatusTone[status];
   const materialProps = useMemo(
     () => ({
@@ -231,9 +253,15 @@ function Plant() {
 
 export function FallbackDormModel({
   selectedId,
+  sensors,
+  sensorsById,
+  twinAreas,
   onSelect,
 }: {
   selectedId: SelectableId;
+  sensors: SensorReading[];
+  sensorsById: Record<SensorId, SensorReading>;
+  twinAreas: Record<TwinAreaId, TwinArea>;
   onSelect: (id: SelectableId) => void;
 }) {
   return (
@@ -253,15 +281,15 @@ export function FallbackDormModel({
       <Box position={[0, 0.12, -1.61]} scale={[4.55, 0.08, 0.06]} color="#D2DEEC" roughness={0.62} radius={0.012} />
       <Box position={[-2.38, 0.12, 0]} scale={[0.06, 0.08, 3.08]} color="#D2DEEC" roughness={0.62} radius={0.012} />
 
-      <AreaPad id="bed" position={[-1.2, 0.014, 0.64]} scale={[1.65, 1.9, 1]} />
-      <AreaPad id="desk" position={[1.12, 0.015, -0.75]} scale={[1.5, 1.2, 1]} />
-      <AreaPad id="door" position={[1.72, 0.016, 1.03]} scale={[1.2, 0.95, 1]} />
-      <AreaPad id="window" position={[-0.28, 0.017, -1.28]} scale={[1.9, 0.62, 1]} />
+      <AreaPad id="bed" position={[-1.2, 0.014, 0.64]} scale={[1.65, 1.9, 1]} sensorsById={sensorsById} twinAreas={twinAreas} />
+      <AreaPad id="desk" position={[1.12, 0.015, -0.75]} scale={[1.5, 1.2, 1]} sensorsById={sensorsById} twinAreas={twinAreas} />
+      <AreaPad id="door" position={[1.72, 0.016, 1.03]} scale={[1.2, 0.95, 1]} sensorsById={sensorsById} twinAreas={twinAreas} />
+      <AreaPad id="window" position={[-0.28, 0.017, -1.28]} scale={[1.9, 0.62, 1]} sensorsById={sensorsById} twinAreas={twinAreas} />
       {sensors.map((sensor) => (
         <HeatZone key={`heat-${sensor.id}`} sensor={sensor} />
       ))}
 
-      <SelectableGroup id="bed" selectedId={selectedId} onSelect={onSelect}>
+      <SelectableGroup id="bed" selectedId={selectedId} twinAreas={twinAreas} onSelect={onSelect}>
         <SoftShadow position={[-1.26, 0.018, 0.7]} scale={[0.95, 1.05, 1]} opacity={0.07} />
         <Box position={[-1.28, 0.22, 0.62]} scale={[1.35, 0.28, 1.65]} color={twinScenePalette.bedFrame} roughness={0.58} radius={0.06} />
         <Box position={[-1.28, 0.43, 0.62]} scale={[1.24, 0.18, 1.48]} color={twinScenePalette.mattress} metalness={0.02} roughness={0.78} radius={0.07} />
@@ -270,7 +298,7 @@ export function FallbackDormModel({
         <Box position={[-1.94, 0.54, 0.62]} scale={[0.12, 0.55, 1.62]} color="#9FB8D6" roughness={0.62} radius={0.025} />
       </SelectableGroup>
 
-      <SelectableGroup id="desk" selectedId={selectedId} onSelect={onSelect}>
+      <SelectableGroup id="desk" selectedId={selectedId} twinAreas={twinAreas} onSelect={onSelect}>
         <SoftShadow position={[1.19, 0.018, -0.73]} scale={[0.9, 0.65, 1]} opacity={0.07} />
         <Box position={[1.2, 0.62, -0.88]} scale={[1.28, 0.13, 0.68]} color={twinScenePalette.desk} roughness={0.5} radius={0.04} />
         <Box position={[1.2, 0.35, -0.88]} scale={[1.12, 0.48, 0.08]} color={twinScenePalette.deskLeg} opacity={0.96} roughness={0.62} radius={0.025} />
@@ -280,25 +308,25 @@ export function FallbackDormModel({
         <Box position={[1.12, 0.62, -0.22]} scale={[0.42, 0.52, 0.08]} color="#B8C4D4" radius={0.035} />
       </SelectableGroup>
 
-      <SelectableGroup id="wardrobe" selectedId={selectedId} onSelect={onSelect}>
+      <SelectableGroup id="wardrobe" selectedId={selectedId} twinAreas={twinAreas} onSelect={onSelect}>
         <SoftShadow position={[-1.86, 0.018, -1.08]} scale={[0.52, 0.36, 1]} opacity={0.06} />
         <Box position={[-1.86, 0.88, -1.16]} scale={[0.72, 1.65, 0.42]} color={twinScenePalette.wardrobe} roughness={0.68} radius={0.04} />
         <Box position={[-1.86, 1.73, -1.16]} scale={[0.76, 0.08, 0.48]} color="#F8FAFC" opacity={0.66} />
         <Box position={[-1.86, 0.9, -0.94]} scale={[0.02, 1.22, 0.035]} color="#A9B8CA" roughness={0.52} radius={0.01} />
       </SelectableGroup>
 
-      <SelectableGroup id="window" selectedId={selectedId} onSelect={onSelect}>
+      <SelectableGroup id="window" selectedId={selectedId} twinAreas={twinAreas} onSelect={onSelect}>
         <Box position={[-0.26, 1.28, -1.72]} scale={[1.45, 0.72, 0.04]} color={twinScenePalette.window} emissive="#BDE2FF" opacity={0.5} />
         <Box position={[-0.26, 1.28, -1.76]} scale={[1.55, 0.08, 0.06]} color="#F8FBFF" emissive="#DDEBFF" />
         <Box position={[-0.26, 0.87, -1.76]} scale={[1.55, 0.07, 0.06]} color="#F8FBFF" emissive="#DDEBFF" />
       </SelectableGroup>
 
-      <SelectableGroup id="door" selectedId={selectedId} onSelect={onSelect}>
+      <SelectableGroup id="door" selectedId={selectedId} twinAreas={twinAreas} onSelect={onSelect}>
         <Box position={[2.49, 0.86, 0.72]} scale={[0.06, 1.62, 0.72]} color={twinScenePalette.door} opacity={0.84} roughness={0.62} />
         <Box position={[2.53, 0.92, 1.05]} scale={[0.05, 0.08, 0.08]} color="#D8B35A" emissive="#D8B35A" />
       </SelectableGroup>
 
-      <SelectableGroup id="air_conditioner" selectedId={selectedId} onSelect={onSelect}>
+      <SelectableGroup id="air_conditioner" selectedId={selectedId} twinAreas={twinAreas} onSelect={onSelect}>
         <Box position={[1.42, 1.78, -1.74]} scale={[0.92, 0.26, 0.12]} color={twinScenePalette.ac} emissive="#DDEBFF" opacity={0.92} roughness={0.52} />
         <Box position={[1.42, 1.62, -1.77]} scale={[0.74, 0.04, 0.05]} color="#9BC4E8" emissive="#BDE2FF" />
       </SelectableGroup>

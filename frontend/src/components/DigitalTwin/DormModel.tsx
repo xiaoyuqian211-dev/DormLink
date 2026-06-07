@@ -3,10 +3,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { Component, Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { Mesh, Object3D } from "three";
-import {
-  selectableIds,
-} from "./sensorMockData";
-import type { SelectableId } from "./types";
+import { selectableIds } from "./sensorTwinData";
+import type { SelectableId, SensorId, SensorReading, TwinArea, TwinAreaId } from "./types";
 import { FallbackDormModel } from "./FallbackDormModel";
 
 const bundledModels = import.meta.glob("../../assets/models/*.glb", {
@@ -20,6 +18,9 @@ const publicDormModelUrl = "/models/dorm.glb";
 
 type DormModelProps = {
   selectedId: SelectableId;
+  sensors: SensorReading[];
+  sensorsById: Record<SensorId, SensorReading>;
+  twinAreas: Record<TwinAreaId, TwinArea>;
   onSelect: (id: SelectableId) => void;
 };
 
@@ -116,7 +117,13 @@ function ModelLoading() {
   );
 }
 
-export function DormModel({ selectedId, onSelect }: DormModelProps) {
+export function DormModel({
+  selectedId,
+  sensors,
+  sensorsById,
+  twinAreas,
+  onSelect,
+}: DormModelProps) {
   const [modelUrl, setModelUrl] = useState<string | null>(bundledDormModelUrl ?? null);
   const [checkedPublicModel, setCheckedPublicModel] = useState(Boolean(bundledDormModelUrl));
 
@@ -142,18 +149,42 @@ export function DormModel({ selectedId, onSelect }: DormModelProps) {
   }, []);
 
   if (!checkedPublicModel) {
-    return <FallbackDormModel selectedId={selectedId} onSelect={onSelect} />;
+    return (
+      <FallbackDormModel
+        selectedId={selectedId}
+        sensors={sensors}
+        sensorsById={sensorsById}
+        twinAreas={twinAreas}
+        onSelect={onSelect}
+      />
+    );
   }
 
   if (!modelUrl) {
-    return <FallbackDormModel selectedId={selectedId} onSelect={onSelect} />;
+    return (
+      <FallbackDormModel
+        selectedId={selectedId}
+        sensors={sensors}
+        sensorsById={sensorsById}
+        twinAreas={twinAreas}
+        onSelect={onSelect}
+      />
+    );
   }
 
   return (
     <ModelErrorBoundary
       resetKey={modelUrl}
       onError={() => setModelUrl(null)}
-      fallback={<FallbackDormModel selectedId={selectedId} onSelect={onSelect} />}
+      fallback={
+        <FallbackDormModel
+          selectedId={selectedId}
+          sensors={sensors}
+          sensorsById={sensorsById}
+          twinAreas={twinAreas}
+          onSelect={onSelect}
+        />
+      }
     >
       <Suspense fallback={<ModelLoading />}>
         <LoadedDormModel modelUrl={modelUrl} onSelect={onSelect} />

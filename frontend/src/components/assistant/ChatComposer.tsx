@@ -7,6 +7,7 @@ type ChatComposerProps = {
   onSubmit: () => void;
   textareaRef: RefObject<HTMLTextAreaElement>;
   disabled?: boolean;
+  dataMode: "real" | "mock";
 };
 
 export function ChatComposer({
@@ -15,6 +16,7 @@ export function ChatComposer({
   onSubmit,
   textareaRef,
   disabled,
+  dataMode,
 }: ChatComposerProps) {
   const canSubmit = value.trim().length > 0 && !disabled;
 
@@ -47,7 +49,8 @@ export function ChatComposer({
         </button>
       </div>
       <p className="mt-2 text-[11px] text-slate-400">
-        Enter 发送，Shift + Enter 换行。当前回答使用演示数据上下文。
+        Enter 发送，Shift + Enter 换行。当前回答使用
+        {dataMode === "real" ? " MQTT 实时数据" : "演示数据"}上下文。
       </p>
     </div>
   );

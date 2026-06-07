@@ -6,16 +6,18 @@ untracked .env file.
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - dependency is listed in requirements.
 
-    def load_dotenv() -> bool:
+    def load_dotenv(*_args, **_kwargs) -> bool:
         return False
 
 
 load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -45,7 +47,19 @@ class Settings:
     mqtt_password: str = os.getenv("MQTT_PASSWORD", "")
     mqtt_client_id: str = os.getenv("MQTT_CLIENT_ID", "").strip()
     mqtt_topic: str = os.getenv("MQTT_TOPIC", "dormlink/telemetry").strip()
-    max_real_history_items: int = _env_int("REAL_HISTORY_LIMIT", 3000)
+    max_real_history_items: int = _env_int("REAL_HISTORY_LIMIT", 1000)
+    database_path: Path = Path(
+        os.getenv(
+            "DATABASE_PATH",
+            str(Path(__file__).resolve().parents[1] / "data" / "dormlink.db"),
+        )
+    )
+    llm_api_key: str = os.getenv("LLM_API_KEY", "").strip()
+    llm_api_url: str = os.getenv(
+        "LLM_API_URL",
+        "https://api.openai.com/v1/chat/completions",
+    ).strip()
+    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
 
     @property
     def sensor_mode(self) -> str:

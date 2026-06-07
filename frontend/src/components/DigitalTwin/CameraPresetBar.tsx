@@ -7,7 +7,7 @@ import {
   Wind,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cameraPresets } from "./sensorMockData";
+import { cameraPresets } from "./sensorTwinData";
 import type { CameraPresetId } from "./types";
 
 const presetIcons: Record<CameraPresetId, LucideIcon> = {

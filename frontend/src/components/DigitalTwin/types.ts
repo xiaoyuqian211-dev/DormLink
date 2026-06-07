@@ -15,7 +15,10 @@ export type SensorId =
   | "sensor_humidity"
   | "sensor_co2"
   | "sensor_light"
-  | "sensor_noise";
+  | "sensor_noise"
+  | "sensor_air_quality"
+  | "sensor_tvoc"
+  | "sensor_motion";
 
 export type SelectableId = TwinAreaId | SensorId;
 
@@ -24,7 +27,8 @@ export type SensorReading = {
   name: string;
   metric: string;
   shortLabel: string;
-  value: number;
+  value: number | string;
+  numericValue?: number | null;
   unit: string;
   status: SensorStatus;
   statusText: string;

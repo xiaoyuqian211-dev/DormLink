@@ -143,10 +143,11 @@ def _on_connect(
 def _on_message(_client: Any, _userdata: Any, message: Any) -> None:
     topic = getattr(message, "topic", "")
     payload_bytes = getattr(message, "payload", b"")
-    logger.info("MQTT message received topic=%s bytes=%s", topic, len(payload_bytes))
+    logger.info("MQTT received message topic=%s bytes=%s", topic, len(payload_bytes))
 
     try:
         raw_payload = payload_bytes.decode("utf-8")
+        logger.info("MQTT received payload topic=%s payload=%s", topic, _shorten(raw_payload))
         data = json.loads(raw_payload)
         if not isinstance(data, dict):
             raise ValueError("MQTT payload must be a JSON object")
@@ -155,7 +156,22 @@ def _on_message(_client: Any, _userdata: Any, message: Any) -> None:
             data["timestamp"] = _utc_now()
 
         reading = TelemetryReading(**data)
-        receive_uploaded_telemetry(reading)
+        logger.info(
+            "MQTT parsed telemetry room_id=%s device_id=%s temperature=%s humidity=%s "
+            "light=%s air_quality=%s co2=%s tvoc=%s motion=%s noise=%s signal_strength=%s",
+            reading.room_id,
+            reading.device_id,
+            reading.temperature,
+            reading.humidity,
+            reading.light,
+            reading.air_quality,
+            reading.co2,
+            reading.tvoc,
+            reading.motion,
+            reading.noise,
+            reading.signal_strength,
+        )
+        receive_uploaded_telemetry(reading, raw_payload=raw_payload)
     except Exception:
         logger.exception("MQTT payload parse failed topic=%s", topic)
         return
@@ -198,3 +214,9 @@ def _extract_disconnect_reason_code(args: tuple[Any, ...]) -> Any:
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _shorten(value: str, limit: int = 500) -> str:
+    if len(value) <= limit:
+        return value
+    return f"{value[:limit]}..."

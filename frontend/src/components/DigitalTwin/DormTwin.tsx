@@ -8,11 +8,17 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { useRealtimeTelemetry } from "../../hooks/useRealtimeTelemetry";
 import { CameraPresetBar } from "./CameraPresetBar";
 import { DormScene } from "./DormScene";
 import { TwinInfoPanel } from "./TwinInfoPanel";
 import { twinStatusUi, twinUi } from "./designTokens";
-import { roomSnapshot, sensors, sensorStatusLabel } from "./sensorMockData";
+import {
+  buildRoomSnapshot,
+  buildTwinAreas,
+  buildTwinSensors,
+  sensorStatusLabel,
+} from "./sensorTwinData";
 import type { CameraPresetId, FocusRequest, SelectableId } from "./types";
 
 type SummaryTone = "blue" | "green" | "amber";
@@ -56,16 +62,28 @@ function SummaryTile({
 }
 
 export function DormTwin() {
-  const [selectedId, setSelectedId] = useState<SelectableId>("window");
+  const [selectedId, setSelectedId] = useState<SelectableId>("bed");
   const [activePreset, setActivePreset] = useState<CameraPresetId | null>("overview");
   const [focusRequest, setFocusRequest] = useState<FocusRequest>({
     key: "overview",
     sequence: 0,
   });
+  const { sourceStatus, latestTelemetry, hasRealData } = useRealtimeTelemetry({
+    debugLabel: "DigitalTwin",
+  });
+  const { sensorsById, sceneSensors } = useMemo(
+    () => buildTwinSensors(latestTelemetry, hasRealData),
+    [hasRealData, latestTelemetry],
+  );
+  const twinAreas = useMemo(() => buildTwinAreas(sensorsById), [sensorsById]);
+  const roomSnapshot = useMemo(
+    () => buildRoomSnapshot(latestTelemetry, sourceStatus, hasRealData),
+    [hasRealData, latestTelemetry, sourceStatus],
+  );
 
   const focusCount = useMemo(
-    () => sensors.filter((sensor) => sensor.status !== "normal").length,
-    [],
+    () => Object.values(sensorsById).filter((sensor) => sensor.status !== "normal").length,
+    [sensorsById],
   );
 
   function requestFocus(key: FocusRequest["key"]) {
@@ -106,7 +124,7 @@ export function DormTwin() {
               <p className={twinUi.eyebrow}>DormLink Digital Twin</p>
               <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2.5">
                 <h2 className="text-[22px] font-semibold tracking-[-0.01em] text-slate-950 sm:text-2xl">
-                  Dorm-A101 空间孪生
+                  {roomSnapshot.roomId} 空间孪生
                 </h2>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/75 px-2.5 py-1 text-[11px] font-medium text-blue-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   <CheckCircle2 size={13} />
@@ -166,6 +184,9 @@ export function DormTwin() {
             <DormScene
               selectedId={selectedId}
               focusRequest={focusRequest}
+              sensors={sceneSensors}
+              twinAreas={twinAreas}
+              sensorsById={sensorsById}
               onSelect={handleSelect}
               onManualControl={handleManualControl}
             />
@@ -198,7 +219,12 @@ export function DormTwin() {
             </div>
           </div>
 
-          <TwinInfoPanel selectedId={selectedId} />
+          <TwinInfoPanel
+            selectedId={selectedId}
+            sensorsById={sensorsById}
+            twinAreas={twinAreas}
+            roomSnapshot={roomSnapshot}
+          />
         </section>
       </div>
     </div>

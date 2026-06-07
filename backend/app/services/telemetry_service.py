@@ -1,10 +1,18 @@
 from app.config import settings
+from app.database import (
+    build_telemetry_summary,
+    get_latest_telemetry,
+    insert_telemetry,
+    query_telemetry_history,
+)
 from app.mock_data import ROOM_ID
 from app.models import (
     EnvironmentState,
     HistoryPoint,
     HistoryResponse,
+    TelemetryLatestResponse,
     TelemetryReading,
+    TelemetrySummaryResponse,
     TelemetrySourceResponse,
 )
 from app.sensor_provider import SensorReading, sensor_provider
@@ -19,32 +27,73 @@ def model_to_reading(payload: TelemetryReading) -> SensorReading:
 
 
 def get_current_telemetry() -> TelemetryReading:
+    latest = get_latest_telemetry()
+    if latest is not None:
+        return latest
     return reading_to_model(sensor_provider.get_current_reading())
 
 
-def get_history(range_value: str = "1h") -> HistoryResponse:
-    readings = sensor_provider.get_history(range_value)
-    points = [
-        HistoryPoint(
-            timestamp=reading.timestamp,
-            temperature=reading.temperature,
-            humidity=reading.humidity,
-            air_quality=reading.air_quality,
-            co2=reading.co2,
-            light=reading.light,
+def get_history(
+    range_value: str = "1h",
+    room_id: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> HistoryResponse:
+    db_readings = query_telemetry_history(
+        room_id=room_id,
+        range_value=range_value,
+        start=start,
+        end=end,
+    )
+    if db_readings:
+        points = [HistoryPoint(**reading.model_dump()) for reading in db_readings]
+        response_room_id = db_readings[-1].room_id
+        return HistoryResponse(
+            room_id=response_room_id,
+            range=range_value,
+            data=points,
+            data_status="real",
+            sample_count=len(points),
         )
-        for reading in readings
-    ]
-    room_id = readings[-1].room_id if readings else ROOM_ID
-    return HistoryResponse(room_id=room_id, range=range_value, data=points)
+
+    snapshot = sensor_provider.get_source_snapshot()
+    if snapshot.has_real_data:
+        return HistoryResponse(
+            room_id=room_id or ROOM_ID,
+            range=range_value,
+            data=[],
+            data_status="real",
+            sample_count=0,
+        )
+
+    readings = sensor_provider.get_history(range_value)
+    points = [HistoryPoint(**reading.to_dict()) for reading in readings]
+    response_room_id = readings[-1].room_id if readings else ROOM_ID
+    return HistoryResponse(
+        room_id=response_room_id,
+        range=range_value,
+        data=points,
+        data_status="mock",
+        sample_count=len(points),
+    )
 
 
-def receive_uploaded_telemetry(payload: TelemetryReading) -> None:
+def receive_uploaded_telemetry(payload: TelemetryReading, raw_payload: str | None = None) -> None:
     sensor_provider.ingest_reading(model_to_reading(payload))
+    insert_telemetry(payload, raw_payload=raw_payload)
 
 
 def get_telemetry_source() -> TelemetrySourceResponse:
     snapshot = sensor_provider.get_source_snapshot()
+    latest = get_latest_telemetry()
+    if latest is not None:
+        return TelemetrySourceResponse(
+            mode=settings.sensor_mode,
+            topic=settings.mqtt_topic,
+            has_real_data=True,
+            last_seen=latest.timestamp,
+            fallback=False,
+        )
     return TelemetrySourceResponse(
         mode=settings.sensor_mode,
         topic=settings.mqtt_topic,
@@ -52,6 +101,22 @@ def get_telemetry_source() -> TelemetrySourceResponse:
         last_seen=snapshot.last_seen,
         fallback=snapshot.fallback,
     )
+
+
+def get_latest_response(room_id: str | None = None) -> TelemetryLatestResponse:
+    latest = get_latest_telemetry(room_id)
+    return TelemetryLatestResponse(
+        source="database" if latest else "mock",
+        data_status="real" if latest else "mock",
+        data=latest,
+    )
+
+
+def get_telemetry_summary(
+    room_id: str | None = None,
+    window: str = "1h",
+) -> TelemetrySummaryResponse:
+    return TelemetrySummaryResponse(**build_telemetry_summary(room_id=room_id, window=window))
 
 
 def get_environment_state() -> EnvironmentState:

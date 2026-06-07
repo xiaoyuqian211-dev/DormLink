@@ -6,6 +6,8 @@ export type MetricKey =
   | "co2"
   | "light"
   | "noise"
+  | "air_quality"
+  | "tvoc"
   | "occupancy";
 
 export type Vector3Tuple = [number, number, number];
@@ -98,4 +100,6 @@ export type HistoryPoint = {
   co2: number;
   light: number;
   noise: number;
+  air_quality?: number;
+  tvoc?: number;
 };

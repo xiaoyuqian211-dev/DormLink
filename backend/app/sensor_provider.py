@@ -148,14 +148,17 @@ class HybridSensorProvider:
         minutes = _parse_range_minutes(range_value)
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
         with self._lock:
-            data = [item for item in self._real_history if item.timestamp >= cutoff]
-        if len(data) >= 2:
-            return data
+            has_real_history = bool(self._real_history)
+            data = [
+                item
+                for item in self._real_history
+                if _ensure_aware(item.timestamp) >= cutoff
+            ]
         if data:
-            return sorted(
-                [*self._mock_provider.get_history(range_value), *data],
-                key=lambda item: _ensure_aware(item.timestamp),
-            )
+            data.sort(key=lambda item: _ensure_aware(item.timestamp))
+            return data
+        if has_real_history:
+            return []
         return self._mock_provider.get_history(range_value)
 
     def ingest_reading(self, reading: SensorReading) -> None:
@@ -181,10 +184,6 @@ class HybridSensorProvider:
             )
 
     def _trim_real_history(self) -> None:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        self._real_history = [
-            item for item in self._real_history if _ensure_aware(item.timestamp) >= cutoff
-        ]
         if len(self._real_history) > self._history_limit:
             self._real_history = self._real_history[-self._history_limit :]
 
@@ -208,6 +207,8 @@ def _parse_range_minutes(range_value: str) -> int:
             return max(5, int(normalized.removesuffix("min")))
         if normalized.endswith("h"):
             return max(1, int(normalized.removesuffix("h"))) * 60
+        if normalized.endswith("d"):
+            return max(1, int(normalized.removesuffix("d"))) * 24 * 60
     except ValueError:
         return 60
     return 60

@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import type { Group } from "three";
-import { sensorStatusTone } from "./sensorMockData";
+import { sensorStatusTone } from "./sensorTwinData";
 import type { SelectableId, SensorReading } from "./types";
 
 type SensorMarkerProps = {
@@ -13,11 +13,21 @@ type SensorMarkerProps = {
 };
 
 function formatCompactValue(sensor: SensorReading) {
-  if (sensor.unit === "℃") return `${sensor.shortLabel} ${sensor.value}°`;
+  if (sensor.value === "--") return `${sensor.shortLabel} --`;
+  if (sensor.unit === "°C") return `${sensor.shortLabel} ${sensor.value}°`;
   if (sensor.unit === "%") return `${sensor.shortLabel} ${sensor.value}%`;
   if (sensor.unit === "ppm") return `${sensor.shortLabel} ${sensor.value}`;
   if (sensor.unit === "lux") return `${sensor.shortLabel} ${sensor.value}`;
+  if (sensor.unit === "dB") return `${sensor.value} dB`;
+  if (!sensor.unit) return `${sensor.shortLabel} ${sensor.value}`;
   return `${sensor.value} ${sensor.unit}`;
+}
+
+function formatFullValue(sensor: SensorReading) {
+  if (sensor.value === "--") return "--";
+  if (sensor.unit === "°C") return `${sensor.value}°C`;
+  if (!sensor.unit) return `${sensor.value}`;
+  return `${sensor.value}${sensor.unit}`;
 }
 
 export function SensorMarker({ sensor, selected, onSelect }: SensorMarkerProps) {
@@ -28,7 +38,7 @@ export function SensorMarker({ sensor, selected, onSelect }: SensorMarkerProps) 
   const label = useMemo(
     () =>
       hovered || selected
-        ? `${sensor.metric} ${sensor.value}${sensor.unit} · ${sensor.statusText}`
+        ? `${sensor.metric} ${formatFullValue(sensor)} · ${sensor.statusText}`
         : formatCompactValue(sensor),
     [hovered, selected, sensor],
   );
