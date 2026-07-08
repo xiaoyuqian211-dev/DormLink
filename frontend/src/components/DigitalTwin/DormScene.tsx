@@ -130,6 +130,20 @@ function SceneLights() {
   );
 }
 
+function CanvasFallback() {
+  return (
+    <div className="flex h-full min-h-[520px] flex-col items-center justify-center px-6 text-center">
+      <p className="text-sm font-semibold text-slate-800">
+        3D scene cannot be initialized
+      </p>
+      <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500">
+        WebGL may be disabled or unavailable in this browser. The sensor summary
+        panel remains available.
+      </p>
+    </div>
+  );
+}
+
 export function DormScene({
   selectedId,
   focusRequest,
@@ -186,6 +200,7 @@ export function DormScene({
       <Canvas
         camera={{ position: [4.6, 4.2, 5.0], fov: 44, near: 0.1, far: 100 }}
         dpr={[1, 1.75]}
+        fallback={<CanvasFallback />}
         shadows
         onContextMenu={(event) => event.preventDefault()}
         onCreated={({ gl }) => {

@@ -134,7 +134,9 @@ export function DormModel({
     fetch(publicDormModelUrl, { method: "HEAD" })
       .then((response) => {
         if (!active) return;
-        setModelUrl(response.ok ? publicDormModelUrl : null);
+        const contentType = response.headers.get("content-type") ?? "";
+        const isHtmlFallback = contentType.toLowerCase().includes("text/html");
+        setModelUrl(response.ok && !isHtmlFallback ? publicDormModelUrl : null);
       })
       .catch(() => {
         if (active) setModelUrl(null);

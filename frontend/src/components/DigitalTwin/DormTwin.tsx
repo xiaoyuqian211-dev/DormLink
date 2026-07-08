@@ -7,6 +7,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Component } from "react";
 import type { ReactNode } from "react";
 import { useRealtimeTelemetry } from "../../hooks/useRealtimeTelemetry";
 import { CameraPresetBar } from "./CameraPresetBar";
@@ -28,6 +29,25 @@ const summaryToneClass: Record<SummaryTone, string> = {
   green: "bg-teal-50 text-teal-700 ring-teal-100",
   amber: "bg-amber-50 text-amber-700 ring-amber-100",
 };
+
+class SceneErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("[DigitalTwin] scene render failed", error);
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 function SummaryTile({
   label,
@@ -57,6 +77,23 @@ function SummaryTile({
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SceneFallback() {
+  return (
+    <div className="flex h-[540px] min-h-[520px] flex-col items-center justify-center rounded-[24px] border border-slate-300/[0.22] bg-white/70 px-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] lg:h-[620px]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+        <Building2 size={22} />
+      </div>
+      <p className="mt-4 text-base font-semibold text-slate-950">
+        Digital twin scene is temporarily unavailable
+      </p>
+      <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+        The dashboard data is still available. Please check browser WebGL support
+        or refresh after the 3D runtime finishes loading.
+      </p>
     </div>
   );
 }
@@ -181,15 +218,17 @@ export function DormTwin() {
               />
             </div>
 
-            <DormScene
-              selectedId={selectedId}
-              focusRequest={focusRequest}
-              sensors={sceneSensors}
-              twinAreas={twinAreas}
-              sensorsById={sensorsById}
-              onSelect={handleSelect}
-              onManualControl={handleManualControl}
-            />
+            <SceneErrorBoundary fallback={<SceneFallback />}>
+              <DormScene
+                selectedId={selectedId}
+                focusRequest={focusRequest}
+                sensors={sceneSensors}
+                twinAreas={twinAreas}
+                sensorsById={sensorsById}
+                onSelect={handleSelect}
+                onManualControl={handleManualControl}
+              />
+            </SceneErrorBoundary>
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
               <div className="flex flex-wrap gap-2">
